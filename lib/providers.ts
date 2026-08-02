@@ -32,7 +32,7 @@ async function callAnthropic({ system, messages }: CallArgs): Promise<string> {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       max_tokens: 800,
       system,
       messages,
@@ -49,7 +49,7 @@ async function callAnthropic({ system, messages }: CallArgs): Promise<string> {
 async function callGemini({ system, messages }: CallArgs): Promise<string> {
   const key = process.env.GOOGLE_API_KEY;
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
