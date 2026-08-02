@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
       provider,
       conversationId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
     return NextResponse.json(
-      { error: "Nexus could not respond. Check your API keys in .env.local." },
+      { error: `Nexus error: ${err?.message ?? "unknown"}` },
       { status: 500 }
     );
   }
