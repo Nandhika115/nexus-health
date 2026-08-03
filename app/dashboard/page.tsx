@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { HeartPulse, Moon, Footprints, Mic, ArrowUpRight, TrendingUp } from "lucide-react";
+import { HeartPulse, Moon, Footprints, Mic, ArrowUpRight, TrendingUp, Scale } from "lucide-react";
 import Shell from "@/components/Shell";
 import { Card, Eyebrow, Pill, StatusDot } from "@/components/ui";
 import { getProfile, getLatestVitals, getTimeline, getPatientAppointments, Tone } from "@/lib/data";
 import BookAppointmentClient from "@/components/BookAppointmentClient";
+import DailyHealthTips from "@/components/DailyHealthTips";
+import HealthScoreCard from "@/components/HealthScoreCard";
 
 const FALLBACK_TIMELINE = [
   { id: "1", title: "Blood report analyzed", detail: null, tone: "good" as Tone, occurred_at: new Date().toISOString() },
@@ -104,6 +106,23 @@ export default async function DashboardPage() {
             </p>
           </div>
         </Card>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+        <Link
+          href="/bmi"
+          className="rounded-xl border border-slate-100 bg-white p-5 transition-shadow hover:shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <Scale className="h-4 w-4 text-ink-600" />
+            <p className="text-sm font-semibold text-slate-800">BMI Calculator</p>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">Check your body mass index</p>
+        </Link>
+
+        <HealthScoreCard />
+
+        <DailyHealthTips />
       </div>
 
       {profile?.role === "patient" && (
