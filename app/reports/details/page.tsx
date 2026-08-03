@@ -1,34 +1,47 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/client";
 
 function ReportDetailsContent() {
+  const supabase = createClient();
   const searchParams = useSearchParams();
   const reportId = searchParams.get("reportId");
   const [report, setReport] = useState<any>(null);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!reportId) return;
+    if (!reportId) {
+      setError("No report ID provided in the URL.");
+      setLoading(false);
+      return;
+    }
 
     async function load() {
-      const { data: reportData } = await supabase
+      const { data: reportData, error: reportError } = await supabase
         .from("reports")
         .select("*")
         .eq("id", reportId)
         .single();
 
-      const { data: findingsData } = await supabase
+      if (reportError) {
+        setError(reportError.message);
+        setLoading(false);
+        return;
+      }
+
+      const { data: findingsData, error: findingsError } = await supabase
         .from("report_findings")
         .select("*")
         .eq("report_id", reportId);
+
+      if (findingsError) {
+        setError(findingsError.message);
+        setLoading(false);
+        return;
+      }
 
       setReport(reportData);
       setFindings(findingsData || []);
@@ -39,6 +52,7 @@ function ReportDetailsContent() {
   }, [reportId]);
 
   if (loading) return <p>Loading report...</p>;
+  if (error) return <p>Error loading report: {error}</p>;
   if (!report) return <p>Report not found.</p>;
 
   return (
