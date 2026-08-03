@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Stethoscope, FileHeart, AlertTriangle, Salad, Siren, ClipboardList, Send } from "lucide-react";
+import { useRef, useState } from "react";
+import { Stethoscope, FileHeart, AlertTriangle, Salad, Siren, ClipboardList, Send, Mic, Square } from "lucide-react";
 import clsx from "clsx";
 import Shell from "@/components/Shell";
 import AIOrb from "@/components/AIOrb";
@@ -29,11 +29,46 @@ export default function AgentsPage() {
   const [provider, setProvider] = useState<AIProvider>("claude");
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
   const [replies, setReplies] = useState<Record<string, string>>({});
+  const recognitionRef = useRef<any>(null);
+
+  function getRecognition() {
+    if (recognitionRef.current) return recognitionRef.current;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setDraft(transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    return recognition;
+  }
 
   function openAgent(id: string) {
     setActive((cur) => (cur === id ? null : id));
     setDraft("");
+  }
+
+  function toggleListening() {
+    const recognition = getRecognition();
+    if (!recognition) {
+      alert("Voice input isn't supported in this browser. Type your message instead.");
+      return;
+    }
+    if (listening) {
+      recognition.stop();
+      setListening(false);
+    } else {
+      recognition.start();
+      setListening(true);
+    }
   }
 
   async function ask(agentId: string) {
@@ -62,12 +97,12 @@ export default function AgentsPage() {
   return (
     <Shell eyebrow="How Nexus works" title="Agent Brain">
       <Card className="flex flex-col items-center gap-4 bg-gradient-to-b from-white to-canvas-card px-6 py-10">
-        <AIOrb size="lg" state={loading ? "thinking" : "idle"} />
+        <AIOrb size="lg" state={loading ? "thinking" : listening ? "listening" : "idle"} />
         <p className="font-display text-base font-semibold text-slate-800">
           Nexus Health Agent Brain
         </p>
         <p className="max-w-md text-center text-sm text-slate-500">
-          Click any agent below, type a message, and see how that specialist responds on its own.
+          Click any agent below, then type or speak a message to see how that specialist responds on its own.
         </p>
         <div className="flex gap-2">
           {PROVIDERS.map((p) => (
@@ -114,13 +149,28 @@ export default function AgentsPage() {
 
               {isActive && (
                 <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder={a.placeholder}
-                    rows={2}
-                    className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-ink-400"
-                  />
+                  <div className="flex items-start gap-2">
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={a.placeholder}
+                      rows={2}
+                      className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-ink-400"
+                    />
+                    <button
+                      onClick={toggleListening}
+                      className={clsx(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+                        listening
+                          ? "bg-red-500 text-white"
+                          : "bg-ink-600/10 text-ink-700 hover:bg-ink-600/20"
+                      )}
+                      aria-label={listening ? "Stop listening" : "Speak instead of typing"}
+                      title={listening ? "Stop listening" : "Speak instead of typing"}
+                    >
+                      {listening ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                   <button
                     onClick={() => ask(a.id)}
                     disabled={loading}
