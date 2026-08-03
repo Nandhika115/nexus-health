@@ -2,12 +2,13 @@ import Link from "next/link";
 import { HeartPulse, Moon, Footprints, Mic, ArrowUpRight, TrendingUp } from "lucide-react";
 import Shell from "@/components/Shell";
 import { Card, Eyebrow, Pill, StatusDot } from "@/components/ui";
-import { getProfile, getLatestVitals, getTimeline, Tone } from "@/lib/data";
+import { getProfile, getLatestVitals, getTimeline, getPatientAppointments, Tone } from "@/lib/data";
+import BookAppointmentClient from "@/components/BookAppointmentClient";
 
 const FALLBACK_TIMELINE = [
   { id: "1", title: "Blood report analyzed", detail: null, tone: "good" as Tone, occurred_at: new Date().toISOString() },
   { id: "2", title: "Appointment booked with Dr. Priya", detail: null, tone: "good" as Tone, occurred_at: new Date(Date.now() - 86400000).toISOString() },
-  { id: "3", title: "Follow-up needed — Vitamin D", detail: null, tone: "attn" as Tone, occurred_at: new Date(Date.now() - 3 * 86400000).toISOString() },
+  { id: "3", title: "Follow-up needed - Vitamin D", detail: null, tone: "attn" as Tone, occurred_at: new Date(Date.now() - 3 * 86400000).toISOString() },
 ];
 
 function relativeTime(iso: string) {
@@ -15,7 +16,7 @@ function relativeTime(iso: string) {
   const days = Math.floor(diffMs / 86400000);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
-  return `${days} days ago`;
+  return days + " days ago";
 }
 
 export default async function DashboardPage() {
@@ -23,7 +24,7 @@ export default async function DashboardPage() {
   const vitals = profile ? await getLatestVitals(profile.id) : null;
   const timelineRows = profile ? await getTimeline(profile.id, 3) : [];
   const timeline = timelineRows.length > 0 ? timelineRows : FALLBACK_TIMELINE;
-
+  const appointments = profile?.role === "patient" ? await getPatientAppointments(profile.id) : [];
   const VITALS = [
     { label: "Heart rate", value: vitals?.heart_rate_bpm ?? 78, unit: "bpm", icon: HeartPulse },
     { label: "Sleep", value: vitals?.sleep_hours ?? 7.2, unit: "hrs", icon: Moon },
@@ -31,9 +32,8 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <Shell eyebrow="Good morning" title={`${profile?.full_name ?? "there"} 👋`}>
+    <Shell eyebrow="Good morning" title={(profile?.full_name ?? "there") + " :)"}>
       <div className="grid gap-5 lg:grid-cols-3">
-        {/* Vitals */}
         <Card className="p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <Eyebrow>Health overview</Eyebrow>
@@ -58,12 +58,11 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        {/* Talk to AI */}
         <Card className="relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-ink-700 to-navy p-6 text-center text-white">
           <div className="absolute -top-10 right-0 h-40 w-40 rounded-full bg-teal-400/20 blur-3xl" />
           <Mic className="h-6 w-6 text-teal-300" />
           <p className="mt-3 font-display text-lg font-semibold">Talk to Nexus</p>
-          <p className="mt-1 text-xs text-slate-300">"How can I help you today?"</p>
+          <p className="mt-1 text-xs text-slate-300">How can I help you today?</p>
           <Link
             href="/assistant"
             className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-teal-500 px-4 py-2 text-xs font-semibold text-navy"
@@ -74,7 +73,6 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
-        {/* Timeline */}
         <Card className="p-5 lg:col-span-2">
           <Eyebrow>Recent health timeline</Eyebrow>
           <ul className="mt-4 space-y-4">
@@ -96,7 +94,6 @@ export default async function DashboardPage() {
           </Link>
         </Card>
 
-        {/* Insight */}
         <Card className="p-5">
           <Eyebrow>Health insight</Eyebrow>
           <div className="mt-4 flex items-start gap-3">
@@ -108,6 +105,31 @@ export default async function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {profile?.role === "patient" && (
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <Card className="p-5">
+            <Eyebrow>Your upcoming appointments</Eyebrow>
+            {appointments.length === 0 && (
+              <p className="mt-3 text-sm text-slate-400">No appointments booked yet.</p>
+            )}
+            <div className="mt-3 space-y-3">
+              {appointments.map((a: any) => (
+                <div key={a.id} className="rounded-lg border border-slate-100 p-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {a.doctor?.full_name ?? "Doctor"}
+                  </p>
+                  <p className="text-xs text-slate-500">{a.concern}</p>
+                  <p className="mt-1 font-data text-[11px] text-slate-400">
+                    {new Date(a.scheduled_at).toLocaleString()} - {a.status}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+          <BookAppointmentClient patientId={profile.id} />
+        </div>
+      )}
     </Shell>
   );
 }

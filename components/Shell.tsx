@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -12,6 +13,8 @@ import {
   ShieldCheck,
   Sparkles,
   LogOut,
+  AlertTriangle,
+  Salad,
 } from "lucide-react";
 import AIOrb from "./AIOrb";
 import { createClient } from "@/lib/supabase/client";
@@ -26,8 +29,11 @@ const NAV = [
 
 const SIDEBAR_EXTRA = [
   { href: "/agents", label: "Agent Brain", icon: Sparkles },
-  { href: "/doctor", label: "Doctor View", icon: Stethoscope },
+  { href: "/health-risk", label: "Health Risk", icon: AlertTriangle },
+  { href: "/health-plan", label: "Health Plan", icon: Salad },
 ];
+
+const DOCTOR_ONLY_LINK = { href: "/doctor", label: "Doctor View", icon: Stethoscope };
 
 export default function Shell({
   children,
@@ -41,6 +47,27 @@ export default function Shell({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [isDoctor, setIsDoctor] = useState(false);
+
+  useEffect(() => {
+    async function loadRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setIsDoctor(data?.role === "doctor");
+    }
+    loadRole();
+  }, []);
+
+  const navItems = isDoctor
+    ? [...NAV, ...SIDEBAR_EXTRA, DOCTOR_ONLY_LINK]
+    : [...NAV, ...SIDEBAR_EXTRA];
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -60,13 +87,13 @@ export default function Shell({
                 Nexus Health
               </p>
               <p className="font-data text-[10px] uppercase tracking-wider text-slate-400">
-                v0.1 — private beta
+                v0.1 - private beta
               </p>
             </div>
           </Link>
 
           <nav className="flex flex-1 flex-col gap-1">
-            {[...NAV, ...SIDEBAR_EXTRA].map((item) => {
+            {navItems.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
               return (

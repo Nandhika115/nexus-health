@@ -152,9 +152,9 @@ export default function LoginPage() {
     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
   >
     {showPassword ? (
-      <EyeOff className="h-5 w-5" />
-    ) : (
       <Eye className="h-5 w-5" />
+    ) : (
+      <EyeOff className="h-5 w-5" />
     )}
   </button>
 </div>

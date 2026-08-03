@@ -1,26 +1,70 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { UploadCloud, FileCheck2, CircleAlert } from "lucide-react";
 import Shell from "@/components/Shell";
 import { Card, Eyebrow, Pill } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
-type Tone = "good" | "attn";
+type Tone = "good" | "attn" | "alert";
 
 interface Finding {
   name: string;
   value: string;
+  unit?: string;
+  normal_range?: string;
   tone: Tone;
   explanation: string;
 }
 
-// Placeholder analysis until a real OCR/parsing pipeline is wired in —
-// swap this for a call to /api/ai (report agent) or an OCR service.
-const SIMULATED_FINDINGS: Finding[] = [
-  { name: "Vitamin D", value: "15 ng/ml", tone: "attn", explanation: "Your level appears lower than the typical range. Low vitamin D is common and usually manageable — worth discussing with your doctor about supplementation." },
-  { name: "Hemoglobin", value: "13.8 g/dl", tone: "good", explanation: "Within the typical healthy range for your profile." },
-  { name: "Fasting glucose", value: "98 mg/dl", tone: "good", explanation: "Within the typical healthy range." },
+interface Category {
+  category: string;
+  findings: Finding[];
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  vitals: "Vitals",
+  blood_sugar: "Blood Sugar",
+  lipids: "Lipids",
+  liver: "Liver",
+  kidney: "Kidney",
+  other: "Other",
+};
+
+const SIMULATED_CATEGORIES: Category[] = [
+  {
+    category: "vitals",
+    findings: [
+      {
+        name: "Vitamin D",
+        value: "15 ng/ml",
+        normal_range: "30-100 ng/ml",
+        tone: "attn",
+        explanation:
+          "Your level sits below the typical range. Low vitamin D is common, especially with limited sun exposure or certain diets, and is usually easy to manage with supplementation.",
+      },
+      {
+        name: "Hemoglobin",
+        value: "13.8 g/dl",
+        normal_range: "13.5-17.5 g/dl",
+        tone: "good",
+        explanation: "Within the typical healthy range for your profile.",
+      },
+    ],
+  },
+  {
+    category: "blood_sugar",
+    findings: [
+      {
+        name: "Fasting glucose",
+        value: "98 mg/dl",
+        normal_range: "70-99 mg/dl",
+        tone: "good",
+        explanation: "Within the typical healthy range.",
+      },
+    ],
+  },
 ];
 
 export default function ReportsPage() {
@@ -28,7 +72,8 @@ export default function ReportsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploaded, setUploaded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [findings, setFindings] = useState<Finding[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File) {
@@ -55,24 +100,60 @@ export default function ReportsPage() {
           .single();
         if (insertError) throw insertError;
 
-        // Simulate AI analysis, then persist findings + flip status.
-        setTimeout(async () => {
-          await supabase.from("report_findings").insert(
-            SIMULATED_FINDINGS.map((f) => ({ report_id: report.id, ...f }))
-          );
-          await supabase.from("reports").update({ status: "analyzed" }).eq("id", report.id);
-          setFindings(SIMULATED_FINDINGS);
-          setAnalyzing(false);
-        }, 1400);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const aiResponse = await fetch("/api/report-analyze", {
+          method: "POST",
+          body: formData,
+        });
+
+        const aiData = await aiResponse.json();
+
+        if (!aiResponse.ok) {
+          throw new Error(aiData.error || "Analysis failed");
+        }
+
+        const realCategories: Category[] = aiData.categories ?? [];
+        const detailedSummary: string = aiData.detailedSummary ?? "";
+
+        const { error: updateError } = await supabase
+          .from("reports")
+          .update({ status: "analyzed", detailed_summary: detailedSummary })
+          .eq("id", report.id);
+        if (updateError) throw updateError;
+
+        const flatFindings = realCategories.flatMap((cat) =>
+          cat.findings.map((f) => ({
+            report_id: report.id,
+            category: cat.category,
+            name: f.name,
+            value: f.value,
+            unit: f.unit ?? null,
+            normal_range: f.normal_range ?? null,
+            tone: f.tone,
+            explanation: f.explanation,
+          }))
+        );
+
+        if (flatFindings.length > 0) {
+          const { error: findingsError } = await supabase
+            .from("report_findings")
+            .insert(flatFindings);
+          if (findingsError) throw findingsError;
+        }
+
+        setCategories(realCategories);
+        setReportId(report.id);
+        setAnalyzing(false);
       } catch (err: any) {
         setError(err.message ?? "Upload failed. Check your Supabase storage bucket/policies.");
-        setFindings(SIMULATED_FINDINGS);
+        setCategories(SIMULATED_CATEGORIES);
         setAnalyzing(false);
       }
     } else {
-      // Not signed in / Supabase not configured — just demo the UI.
       setTimeout(() => {
-        setFindings(SIMULATED_FINDINGS);
+        setCategories(SIMULATED_CATEGORIES);
         setAnalyzing(false);
       }, 1400);
     }
@@ -120,23 +201,32 @@ export default function ReportsPage() {
                 <FileCheck2 className="h-4 w-4 text-teal-600" />
                 <p className="text-sm font-medium text-teal-700">Analysis complete</p>
               </div>
-              <Eyebrow>Important findings</Eyebrow>
-              <div className="mt-3 space-y-3">
-                {findings.map((f) => (
-                  <div key={f.name} className="rounded-xl border border-slate-100 bg-canvas-card/50 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-800">{f.name}</p>
-                      <Pill tone={f.tone}>
-                        {f.tone === "attn" && <CircleAlert className="h-3 w-3" />} {f.value}
-                      </Pill>
-                    </div>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-500">{f.explanation}</p>
+
+              {categories.map((cat) => (
+                <div key={cat.category} className="mb-5 last:mb-0">
+                  <Eyebrow>{CATEGORY_LABELS[cat.category] ?? cat.category}</Eyebrow>
+                  <div className="mt-3 space-y-3">
+                    {cat.findings.map((f) => (
+                      <div key={f.name} className="rounded-xl border border-slate-100 bg-canvas-card/50 p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-slate-800">{f.name}</p>
+                          <Pill tone={f.tone}>
+                            {f.tone !== "good" && <CircleAlert className="h-3 w-3" />} {f.value}
+                          </Pill>
+                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-slate-500">{f.explanation}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <button className="mt-5 rounded-full bg-ink-600 px-4 py-2 text-xs font-semibold text-white">
+                </div>
+              ))}
+
+              <Link
+                href={reportId ? `/reports/details?reportId=${reportId}` : "#"}
+                className="mt-2 inline-block rounded-full bg-ink-600 px-4 py-2 text-xs font-semibold text-white"
+              >
                 View full report
-              </button>
+              </Link>
             </div>
           )}
         </Card>

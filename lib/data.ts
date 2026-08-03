@@ -130,3 +130,14 @@ export async function getPatientRecordForDoctor(patientId: string) {
     reports: reports ?? [],
   };
 }
+export async function getPatientAppointments(patientId: string) {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("appointments")
+    .select(
+      "id, scheduled_at, concern, status, doctor:profiles!appointments_doctor_id_fkey(full_name)"
+    )
+    .eq("patient_id", patientId)
+    .order("scheduled_at", { ascending: true });
+  return data ?? [];
+}
