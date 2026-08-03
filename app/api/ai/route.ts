@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error(err);
     return NextResponse.json(
-      { error: `Nexus error: ${err?.message ?? "unknown"}` },
+      { error: "Nexus error: " + (err?.message ?? "unknown") },
       { status: 500 }
     );
   }

@@ -1,4 +1,4 @@
-export type AIProvider = "gpt" | "claude" | "gemini";
+export type AIProvider = "gpt" | "claude" | "gemini" | "groq";
 
 export type ChatRole = "user" | "assistant";
 

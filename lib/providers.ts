@@ -67,10 +67,29 @@ async function callGemini({ system, messages }: CallArgs): Promise<string> {
   return data.candidates?.[0]?.content?.parts?.map((p: { text: string }) => p.text).join("\n") ?? "";
 }
 
+async function callGroq({ system, messages }: CallArgs): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "system", content: system }, ...messages],
+      temperature: 0.4,
+    }),
+  });
+  if (!res.ok) throw new Error(`Groq error: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
 const PROVIDERS: Record<AIProvider, (args: CallArgs) => Promise<string>> = {
   gpt: callOpenAI,
   claude: callAnthropic,
   gemini: callGemini,
+  groq: callGroq,
 };
 
 export async function callProvider(
