@@ -154,13 +154,6 @@ export default function LoginPage() {
             {loading ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
           </button>
         </form>
-
-        <p className="mt-5 text-center text-[11px] text-slate-500">
-          Sign-up requires <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to be set in{" "}
-          <code>.env.local</code>, and the schema in{" "}
-          <code>supabase/schema.sql</code> to be applied to your project.
-        </p>
       </div>
     </main>
   );
